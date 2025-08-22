@@ -2,8 +2,12 @@ cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_PREFIX_PATH "/usr/local/cuda-12.6")
 
+set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "cmake/conan_provider.cmake")
+
+
 # Set the project name to your project name, my project isn't very descriptive
 project(myproject CUDA CXX)
+
 include(cmake/StandardProjectSettings.cmake)
 
 # Link this 'library' to set the c++ standard / compile-time options requested
