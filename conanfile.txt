@@ -1,6 +1,7 @@
 [requires]
 gtest/1.16.0
 fmt/10.2.1
+simpleble/0.10.3
 
 [generators]
 CMakeDeps
