@@ -10,7 +10,7 @@ endif()
 
 find_package(fmt REQUIRED)
 
-target_link_libraries(${TARGET_NAME} PRIVATE project_options project_warnings fmt::fmt)
+target_link_libraries(${TARGET_NAME} PRIVATE project_options project_warnings)
 
 if(BUILD_TESTING)
   list(APPEND TEST_CASES
