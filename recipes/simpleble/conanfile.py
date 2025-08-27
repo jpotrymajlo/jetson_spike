@@ -1,6 +1,7 @@
 from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeToolchain, CMakeDeps, cmake_layout
 from conan.tools.scm import Git
+from conan.tools.files import collect_libs
 import os
 
 class SimpleBLEConan(ConanFile):
@@ -36,5 +37,5 @@ class SimpleBLEConan(ConanFile):
         cmake.install()
 
     def package_info(self):
-        self.cpp_info.libs = ["simpleble"]
+        self.cpp_info.libs = collect_libs(self)
 

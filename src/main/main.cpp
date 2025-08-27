@@ -1,12 +1,20 @@
 #include "liba/liba.h"
 #include "libmycuda/libmycuda.hpp"
+#include "atomic"
+#include "liblwp/HubClient.hpp"
 
-int main() {
-  auto a = A{}; 
-  auto b = A{};
-  a = b;
-  int data[] = {1, 2, 3, 4, 5};
-  int size = sizeof(data) / sizeof(data[0]);
-  addOne(data, size);
-  return 0;
+static std::atomic_bool g_stop{false};
+void sigint_handler(int) { g_stop = true; }
+
+int main(int argc, char** argv) {
+    try {
+        std::signal(SIGINT, sigint_handler);
+        std::optional<std::string> nameFilter;
+        HubClient client;
+        client.connect(nameFilter);
+        client.subscribe_notifications(obs);
+    } catch (...) {
+        std::cerr << "Nie udało się zarejestrować handlera SIGINT.\n";
+        return 1;
+    }
 }

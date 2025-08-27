@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_PREFIX_PATH "/usr/local/cuda-12.6")
+set(CMAKE_CUDA_ARCHITECTURES 87)
 
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "cmake/conan_provider.cmake")
 
 
 # Set the project name to your project name, my project isn't very descriptive
-project(myproject CUDA CXX)
+project(myproject CUDA CXX C)
 
 include(cmake/StandardProjectSettings.cmake)
 
