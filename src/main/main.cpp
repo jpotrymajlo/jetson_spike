@@ -1,18 +1,18 @@
-#include "liba/liba.h"
-#include "libmycuda/libmycuda.hpp"
+#include "libmycuda.hpp"
 #include "atomic"
-#include "liblwp/HubClient.hpp"
+#include "HubClient.hpp"
+#include <csignal>
 
 static std::atomic_bool g_stop{false};
 void sigint_handler(int) { g_stop = true; }
 
-int main(int argc, char** argv) {
+int main(int, char** ) {
     try {
         std::signal(SIGINT, sigint_handler);
         std::optional<std::string> nameFilter;
-        HubClient client;
+        LWP::HubClient client;
         client.connect(nameFilter);
-        client.subscribe_notifications(obs);
+        client.subscribe_notifications();
     } catch (...) {
         std::cerr << "Nie udało się zarejestrować handlera SIGINT.\n";
         return 1;

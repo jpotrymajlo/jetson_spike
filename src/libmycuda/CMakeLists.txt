@@ -2,13 +2,12 @@ set(TARGET_NAME libmycuda)
 set(TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/libmycuda.cu)
 set(CMAKE_CUDA_ARCHITECTURES 87)
 
-if(BUILD_SHARED_LIBS)
-  add_library(${TARGET_NAME} SHARED ${TARGET_SOURCES})
-else()
-  add_library(${TARGET_NAME} STATIC ${TARGET_SOURCES})
-endif()
+add_library(${TARGET_NAME} ${TARGET_SOURCES})
 
-#target_link_libraries(${TARGET_NAME} PRIVATE project_options project_warnings)
-#target_link_libraries(${TARGET_NAME} PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+target_include_directories(${TARGET_NAME}
+	PUBLIC 
+	    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
 set_target_properties(${TARGET_NAME} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
