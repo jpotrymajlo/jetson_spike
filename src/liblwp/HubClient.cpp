@@ -15,7 +15,7 @@ namespace LWP {
         if (adapters.empty()) throw std::runtime_error("Brak adaptera BLE");
 
         adapter_ = adapters.front();
-        adapter_.scan_for(3000);
+        adapter_.scan_for(10000);
 
         auto peripherals = adapter_.scan_get_results();
         SimpleBLE::Peripheral target;
@@ -23,22 +23,26 @@ namespace LWP {
         bool found = false;
         for (auto& p : peripherals) {
             try {
+		std::cout<<"identifier="<<p.identifier()<<"\n";
                 auto uuids = p.services();
                 bool hasLwp = false;
                 for (auto& u : uuids) {
-                    if (strcasecmp(u.uuid().c_str(), LWP::serviceUUID) == 0) {
+		    std::cout<<"uuid="<<u.uuid()<<"\n";
+                    if (strcasecmp(u.uuid().c_str(), LWP::nusServiceUUID.c_str()) == 0) {
                         hasLwp = true;
                         break;
                     }
                 }
-                bool nameOk = !name_contains.has_value() || (p.identifier().find(*name_contains) != std::string::npos);
+                bool nameOk = name_contains.has_value() and (p.identifier().find(*name_contains) != std::string::npos);
 
                 if ((hasLwp || nameOk) && p.is_connectable()) {
                     target = p;
                     found  = true;
                     break;
                 }
-            } catch (...) {}
+            } catch (std::exception& e) {
+		    std::cout<<"Error: "<<e.what()<<std::endl;
+	    }
         }
 
         if (!found) throw std::runtime_error("Nie znaleziono huba SPIKE Prime (serwis LWP3).");
@@ -50,22 +54,31 @@ namespace LWP {
         peripheral_ = target;
 
         // Znajdź charakterystykę LWP
-        bool gotChar = false;
+        bool gotWrite = false;
+	bool gotNotification = false;
         for (auto& s : peripheral_.services()) {
-            if (strcasecmp(s.uuid().c_str(), LWP::serviceUUID) == 0) {
+            if (strcasecmp(s.uuid().c_str(), LWP::nusServiceUUID.c_str()) == 0) {
                 for (auto& c : s.characteristics()) {
-                    if (strcasecmp(c.uuid().c_str(), LWP::characteristicsUUID) == 0) {
-                        service_uuid_ = s.uuid();
-                        char_uuid_    = c.uuid();
-                        gotChar       = true;
-                        break;
+                    serviceUUID = s.uuid();
+                    if (strcasecmp(c.uuid().c_str(), LWP::nusTxCharacteristicUUID.c_str()) == 0) {
+                        writeUUID    = c.uuid();
+                        gotWrite       = true;
                     }
+		     if (strcasecmp(c.uuid().c_str(), LWP::nusRxCharacteristicUUID.c_str()) == 0) {
+                        notifyUUID    = c.uuid();
+                        gotNotification  = true;
+                    }
+                    if (gotWrite and gotNotification)
+		    {
+		        break;
+		    }
+		    
                 }
             }
         }
-        if (!gotChar) throw std::runtime_error("Nie znaleziono charakterystyki LWP3 w hubie.");
+        if (!gotWrite or !gotNotification) throw std::runtime_error("Nie znaleziono charakterystyki LWP3 w hubie.");
 
-        std::cout << "Połączono. Service=" << service_uuid_ << " Char=" << char_uuid_ << "\n";
+        std::cout << "Połączono. Service=" << serviceUUID << " write=" << writeUUID << " notif="<< notifyUUID << "\n";
     }
 
 }
