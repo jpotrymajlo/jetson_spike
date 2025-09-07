@@ -37,7 +37,6 @@ void HubClient::connect(const std::string &name)
     SimpleBluez::Adapter::DiscoveryFilter filter;
     filter.Transport = SimpleBluez::Adapter::DiscoveryFilter::TransportType::LE;
 
-    std::cout<<"Using adapter: "<<adapter->identifier()<<" ["<<adapter->address()<<"]"<<std::endl;
     adapter->discovery_filter(filter);
     std::promise<void> deviceFoundPromise;
     std::promise<void> servicesResolvedPromise;
@@ -47,13 +46,10 @@ void HubClient::connect(const std::string &name)
         {
             device = updatedDevice;
             device->set_on_services_resolved([this, &servicesResolvedPromise]() {
+
                 if (device->services_resolved()) {
-                    for (auto service : device->services()) {
-                        std::cout << "Service: " << service->uuid() << std::endl;
-                        for (auto characteristic : service->characteristics()) {
-                            std::cout << "  Characteristic: " << characteristic->uuid() << std::endl;
-                        }
-                    }
+                    rxCharacteristic = device->get_characteristic(nusServiceUUID, rxCharacteristicUUID);
+                    txCharacteristic = device->get_characteristic(nusServiceUUID, txCharacteristicUUID);
                     servicesResolvedPromise.set_value();
                 } else {
                     std::cout << "Failed to resolve services for device: " << device->name() << " [" << device->address() << "]" << std::endl;
@@ -71,6 +67,14 @@ void HubClient::connect(const std::string &name)
     auto servicesResolvedFuture = servicesResolvedPromise.get_future();
     servicesResolvedFuture.get();
 
+}
+
+void HubClient::connect(const std::string &name, std::function<void()> onConnected)
+{
+    std::thread([this, name, onConnected=std::move(onConnected)]() {
+        connect(name);
+        onConnected();
+    }).detach();
 }
 
 void HubClient::disconnect()
