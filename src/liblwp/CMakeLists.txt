@@ -4,9 +4,9 @@ set(TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/HubClient.cpp)
 
 add_library(${TARGET_NAME} ${TARGET_SOURCES})
 
-find_package(simpleble REQUIRED)
-find_package(PkgConfig REQUIRED) 
-pkg_check_modules(DBUS REQUIRED dbus-1) 
+find_package(simplebluez REQUIRED)
+find_package(DBus1 REQUIRED)
+find_package(fmt REQUIRED)
 
 target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -15,11 +15,9 @@ target_link_libraries(${TARGET_NAME}
 	PRIVATE 
 	    project_options
 	    project_warnings
-)
-
-target_link_libraries(${TARGET_NAME}
 	PUBLIC
-	    simpleble::simpleble
-	    ${DBUS_LIBRARIES}
+	    simplebluez::simplebluez
+            dbus-1
+	    fmt::fmt
 )
 

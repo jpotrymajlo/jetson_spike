@@ -1,84 +1,98 @@
 #include "HubClient.hpp"
 
-namespace LWP {
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
+#include <iomanip>
+#include <iostream>
+#include <thread>
+#include <future>
 
-    HubClient::HubClient() {
-        adapter_ = SimpleBLE::Adapter::get_adapters()[0];
-        std::cout << "Używany adapter: " << adapter_.identifier() << " [" << adapter_.address() << "]\n";
+namespace Lwp
+{
+HubClient::HubClient()
+    
+{
+    bluez.init();
+    bluezThread = std::make_unique<std::thread>([this](){bluezThreadFunction();});
+}
+HubClient::~HubClient()
+{
+    disconnect(); 
+    bluezThreadActive = false;
+    if (bluezThread->joinable()) {
+        bluezThread->join();
+    }
+}
+void HubClient::connect(const std::string &name)
+{
+    auto adapters = bluez.get_adapters();
 
-        std::cout << "Skanowanie w poszukiwaniu huba SPIKE Prime...\n";
+    for (unsigned int i = 0; i < adapters.size(); i++) {
+        std::cout << "[" << i << "] " << adapters[i]->identifier() << " [" << adapters[i]->address() << "]"
+                  << std::endl;
     }
 
-    void HubClient::connect(std::optional<std::string> name_contains) {
+    auto adapter = adapters[0];
+    SimpleBluez::Adapter::DiscoveryFilter filter;
+    filter.Transport = SimpleBluez::Adapter::DiscoveryFilter::TransportType::LE;
 
-        auto adapters = SimpleBLE::Adapter::get_adapters();
-        if (adapters.empty()) throw std::runtime_error("Brak adaptera BLE");
-
-        adapter_ = adapters.front();
-        adapter_.scan_for(10000);
-
-        auto peripherals = adapter_.scan_get_results();
-        SimpleBLE::Peripheral target;
-
-        bool found = false;
-        for (auto& p : peripherals) {
-            try {
-		std::cout<<"identifier="<<p.identifier()<<"\n";
-                auto uuids = p.services();
-                bool hasLwp = false;
-                for (auto& u : uuids) {
-		    std::cout<<"uuid="<<u.uuid()<<"\n";
-                    if (strcasecmp(u.uuid().c_str(), LWP::nusServiceUUID.c_str()) == 0) {
-                        hasLwp = true;
-                        break;
+    std::cout<<"Using adapter: "<<adapter->identifier()<<" ["<<adapter->address()<<"]"<<std::endl;
+    adapter->discovery_filter(filter);
+    std::promise<void> deviceFoundPromise;
+    std::promise<void> servicesResolvedPromise;
+    adapter->set_on_device_updated([this, name, &adapter, &deviceFoundPromise, 
+        &servicesResolvedPromise](std::shared_ptr<SimpleBluez::Device> updatedDevice) {
+        if (not device and updatedDevice->name() == name and not updatedDevice->connected())
+        {
+            device = updatedDevice;
+            device->set_on_services_resolved([this, &servicesResolvedPromise]() {
+                if (device->services_resolved()) {
+                    for (auto service : device->services()) {
+                        std::cout << "Service: " << service->uuid() << std::endl;
+                        for (auto characteristic : service->characteristics()) {
+                            std::cout << "  Characteristic: " << characteristic->uuid() << std::endl;
+                        }
                     }
-                }
-                bool nameOk = name_contains.has_value() and (p.identifier().find(*name_contains) != std::string::npos);
-
-                if ((hasLwp || nameOk) && p.is_connectable()) {
-                    target = p;
-                    found  = true;
-                    break;
-                }
-            } catch (std::exception& e) {
-		    std::cout<<"Error: "<<e.what()<<std::endl;
-	    }
+                    servicesResolvedPromise.set_value();
+                } else {
+                    std::cout << "Failed to resolve services for device: " << device->name() << " [" << device->address() << "]" << std::endl;
+                }});
+            adapter->set_on_device_updated(nullptr); 
+            deviceFoundPromise.set_value();
         }
+    });
+    adapter->discovery_start();
+    auto deviceFoundFuture = deviceFoundPromise.get_future();
+    deviceFoundFuture.get();
 
-        if (!found) throw std::runtime_error("Nie znaleziono huba SPIKE Prime (serwis LWP3).");
+    adapter->discovery_stop();
+    device->connect();
+    auto servicesResolvedFuture = servicesResolvedPromise.get_future();
+    servicesResolvedFuture.get();
 
-        std::cout << "Łączenie z: " << target.identifier() << " [" << target.address() << "]\n";
-        target.connect();
-        if (!target.is_connected()) throw std::runtime_error("Nie udało się połączyć z hubem.");
+}
 
-        peripheral_ = target;
+void HubClient::disconnect()
+{
+    device->disconnect();
 
-        // Znajdź charakterystykę LWP
-        bool gotWrite = false;
-	bool gotNotification = false;
-        for (auto& s : peripheral_.services()) {
-            if (strcasecmp(s.uuid().c_str(), LWP::nusServiceUUID.c_str()) == 0) {
-                for (auto& c : s.characteristics()) {
-                    serviceUUID = s.uuid();
-                    if (strcasecmp(c.uuid().c_str(), LWP::nusTxCharacteristicUUID.c_str()) == 0) {
-                        writeUUID    = c.uuid();
-                        gotWrite       = true;
-                    }
-		     if (strcasecmp(c.uuid().c_str(), LWP::nusRxCharacteristicUUID.c_str()) == 0) {
-                        notifyUUID    = c.uuid();
-                        gotNotification  = true;
-                    }
-                    if (gotWrite and gotNotification)
-		    {
-		        break;
-		    }
-		    
-                }
-            }
-        }
-        if (!gotWrite or !gotNotification) throw std::runtime_error("Nie znaleziono charakterystyki LWP3 w hubie.");
+}
 
-        std::cout << "Połączono. Service=" << serviceUUID << " write=" << writeUUID << " notif="<< notifyUUID << "\n";
+void HubClient::sendCommand(const std::string &)
+{
+}
+
+std::string HubClient::receiveData()
+{
+  return std::string();
+}
+
+void HubClient::bluezThreadFunction() //przerobić na timer
+{
+    while (bluezThreadActive) {
+        bluez.run_async();
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
-
+}
 }
